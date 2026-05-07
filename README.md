@@ -1,193 +1,200 @@
-# Multi-Agent Dev — 多Agent开发工作流
+# Multi-Agent Dev / 多Agent开发工作流
 
-> 两行命令安装，一个斜杠命令使用。复杂功能走完整5阶段，简单改动走快速2阶段。
+> 两行命令安装，一个斜杠命令使用 / Two commands to install, one slash command to use.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
+English | 中文
+
+---
+
 ## 怎么用 / How to Use
 
-### 第一步：安装（一次，全局）
+### 安装（一次，全局） / Install (once, globally)
 
 ```bash
 git clone https://github.com/Peter-Bugger/multi-agent-dev.git
 cd multi-agent-dev
-cp -r .claude/agents ~/.claude/
-cp -r .claude/skills ~/.claude/
+cp -r .claude/agents ~/.claude/       # 5 个角色定义 / 5 agent definitions
+cp -r .claude/skills ~/.claude/       # 工作流引擎 / workflow engine
 ```
 
-搞定。以后所有项目都能用。
+Done. All projects can use it now. / 搞定，所有项目都能用了。
 
-### 第二步：在 Claude Code 里用
+### 使用 / Usage
 
 ```
 /multi-agent-dev 在用户设置页添加头像上传功能
+/multi-agent-dev Add avatar upload to user profile page
 ```
 
-首次使用会自动检测项目技术栈，创建项目级文件。
+第一次用会自动检测技术栈、创建项目级文件。
+First use auto-detects tech stack and creates project files.
 
 ---
 
-## 两种模式
+## 两种模式 / Two Modes
 
-### 完整模式（新功能、跨模块改动、重构）
+### 完整模式 / Full mode
 
-```
-/multi-agent-dev <任务描述>
-```
-
-走 5 个阶段：
+新功能、跨模块改动、重构 / For features, cross-module changes, refactoring:
 
 ```
-Tech Lead → Senior Dev → Developer → Reviewer → Integrator
-  方案设计    详细设计        写代码       审查       集成验证
+/multi-agent-dev <task description / 任务描述>
 ```
 
-每阶段一个独立 Agent，产出标准文件（PLAN.md / DESIGN.md / REVIEW.md）。
-审查发现 BUG 自动回到 Developer 修复，最多 3 轮。
+5 阶段 / 5 stages:
 
-### 快速模式（小改、修 Bug、调样式）
+```
+Tech Lead ──→ Senior Dev ──→ Developer ──→ Reviewer ──→ Integrator
+ 方案设计       详细设计         写代码         审查          集成验证
+ Plan          Design           Code          Review        Verify
+```
+
+每个阶段一个独立 Agent。审查发现 BUG 自动回到 Developer 修复，最多 3 轮。
+Each stage is an independent agent. Reviewer auto-loops back to Developer on bugs (max 3 cycles).
+
+### 快速模式 / Quick mode
+
+小改、修 Bug、调样式 / For small fixes, CSS tweaks, config changes:
 
 ```
 /multi-agent-dev [quick] 修复登录按钮对齐问题
+/multi-agent-dev [quick] Fix login button alignment
 ```
 
-跳过大方案设计，直接：
-
-```
-Developer → Integrator
- 写代码      验证 + 简要审查
-```
+直接跳到写代码 + 验证，跳过方案设计阶段。
+Goes straight to coding + verification, skips planning stages.
 
 ---
 
-## 还有这些用法
+## 其他命令 / Other Commands
 
-| 命令 | 干什么 |
+| 命令 / Command | 干什么 / What it does |
 |------|--------|
-| `/multi-agent-dev stage 4` | 只审查当前代码，不走完整流程 |
-| `/multi-agent-dev stage 5` | 只跑构建和测试 |
-| `/multi-agent-dev resume` | 上次中断了，从这里继续 |
+| `/multi-agent-dev stage 4` | 只审查代码 / Review only |
+| `/multi-agent-dev stage 5` | 只跑构建测试 / Build & test only |
+| `/multi-agent-dev resume` | 恢复中断 / Resume interrupted |
 
 ---
 
-## 架构：三层 + 自进化
+## 架构：三层 + 自进化 / Architecture: 3 Layers + Self-Evolution
 
 ```
-                         ┌──────────────────────┐
-                         │   用户一个命令搞定      │
-                         │  /multi-agent-dev ...  │
-                         └──────────┬───────────┘
+                         ┌──────────────────────────┐
+                         │   一个命令 / one command    │
+                         │  /multi-agent-dev ...      │
+                         └──────────┬───────────────┘
                                     │
 ┌───────────────────────────────────▼───────────────────────────────────┐
-│                     Skill 层（引擎，全局安装一次）                       │
-│                     ~/.claude/skills/multi-agent-dev/                 │
+│                  Skill 层 / Layer（引擎，全局一次 / engine, once）       │
+│                  ~/.claude/skills/multi-agent-dev/                    │
 │                                                                       │
 │  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │ SKILL.md          agents.json        pattern-registry.md        │ │
-│  │ 命令解析+流程编排    全局角色定义         跨项目经验库               │ │
-│  │ [完整5阶段/快速2阶段/单阶段/恢复]          [global|stack:xxx]       │ │
+│  │ SKILL.md           agents.json         pattern-registry.md      │ │
+│  │ 命令解析+流程编排   全局角色定义          跨项目经验库               │ │
+│  │ 完整/快速/单阶段/恢复                     [global | stack:xxx]     │ │
+│  │ Orchestration       Agent configs        Cross-project knowledge │ │
 │  └─────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────┬───────────────────────────────────┘
-                                    │ 调度 5 个 Agent
+                                    │ 调度 / dispatches
 ┌───────────────────────────────────▼───────────────────────────────────┐
-│                     Agent 层（角色，全局安装一次）                       │
-│                     ~/.claude/agents/                                  │
+│                  Agent 层 / Layer（角色，全局一次 / agents, once）       │
+│                  ~/.claude/agents/                                     │
 │                                                                       │
 │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
 │  │Tech Lead │──→│Senior Dev│──→│Developer │──→│Reviewer  │──→│Integrator│
-│  │ 方案设计  │   │ 详细设计  │   │ 写代码    │   │ 审查     │   │ 集成验证  │
+│  │ 方案/Plan │   │ 设计/Design│   │ 编码/Code │   │ 审查/Review│  │ 验证/Verify│
 │  └──────────┘   └──────────┘   └──────────┘   └────┬─────┘   └────┬─────┘
-│                                                    │ 发现BUG     │
+│                                                    │ BUG 发现    │
 │                                          ┌─────────┘             │
-│                                          │ 自动回到Developer修复   │
-│                                          │ 最多3轮                │
+│                                          │ auto back to Developer │
+│                                          │ max 3 cycles / 最多3轮  │
 │                                          └───────────────────────→ 经验沉淀
 └───────────────────────────────────┬───────────────────────────────────┘
-                                    │ 首次使用自动创建
+                                    │ 首次自动创建 / auto-created
 ┌───────────────────────────────────▼───────────────────────────────────┐
-│                     Project 层（每个项目独立，自进化）                   │
-│                     ./.claude/workflows/                               │
+│               Project 层 / Layer（每个项目独立 / per project）          │
+│               ./.claude/workflows/                                     │
 │                                                                       │
-│  ┌─────────────────────────┐       ┌─────────────────────────────┐   │
-│  │  multi-agent-flow.md    │       │  lessons-log.md             │   │
-│  │  ├─ 继承的全局模式        │←───→│  ├─ 自动记录每轮经验           │   │
-│  │  ├─ 项目覆盖              │  ≥3次│  ├─ ≥3次提炼为项目模式        │   │
-│  │  └─ 本项目特有模式(≤15)   │       │  └─ ≥5次稳定→推广到全局     │   │
-│  └─────────────────────────┘       └─────────────────────────────┘   │
+│  ┌─────────────────────────┐        ┌─────────────────────────────┐  │
+│  │  multi-agent-flow.md    │        │  lessons-log.md             │  │
+│  │  ├─ 继承全局模式          │←──────│  ├─ 每轮自动记录              │  │
+│  │  ├─ 项目覆盖              │  ≥3次  │  ├─ ≥3次 → 项目模式          │  │
+│  │  └─ 项目特有模式(≤15)     │        │  └─ ≥5次 → 推广全局          │  │
+│  │  Inherited + own patterns│        │  Auto-log + promote        │  │
+│  └─────────────────────────┘        └─────────────────────────────┘  │
 └───────────────────────────────────────────────────────────────────────┘
-                                    │ ≥5次稳定触发
+                                    │ ≥5 stable triggers / ≥5次稳定
 ┌───────────────────────────────────▼───────────────────────────────────┐
-│                     跨项目知识推广                                      │
+│              跨项目推广 / Cross-Project Promotion                       │
 │                                                                       │
 │  项目模式 ──→ [stack: SpringBoot3] ──→ [global]                       │
-│              同技术栈项目自动继承          所有项目自动继承             │
+│  Project      同技术栈自动继承              所有项目自动继承              │
+│  pattern      Same stack inherits          All projects inherit       │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 它会越用越聪明
+## 越用越聪明 / Gets Smarter With Use
 
-每次完成一个任务，Integrator 自动记录经验：
+每次 Integrator 收尾时自动记录经验 / Integrator auto-logs experience every run:
 
 ```
-本项目经验 ──≥3次同类──→ 提炼为项目模式
-     │
-     └──≥5次稳定触发──→ 推广到同技术栈
-              │
-              └──→ 推广到全局（所有项目受益）
+经验 ≥3次同类 → 提炼为项目模式 → ≥5次稳定 → 推广到同技术栈 → 推广到全局
+Experience → ≥3 same → project pattern → ≥5 stable → stack → global
 ```
 
-新项目第一次使用时，自动继承全局经验库里的匹配模式。
+新项目首次使用自动继承全局匹配模式 / New projects auto-inherit matching global patterns.
 
 ---
 
-## 5 个角色干什么
+## 5 个角色 / 5 Roles
 
-| 角色 | 什么时候出场 | 产出 |
+| 角色 / Role | 出场 / When | 产出 / Output |
 |------|-------------|------|
-| Tech Lead | 完整模式第一步 | 技术方案，需求确认 |
-| Senior Dev | Tech Lead 之后 | 详细设计，任务拆解 |
-| Developer | 设计方案确定后 | 代码实现 |
-| Reviewer | 代码写完自动触发 | 审查报告（BUG 分级） |
-| Integrator | 审查通过后自动触发 | 构建测试 + 经验沉淀 |
+| Tech Lead | 完整模式第一步 / Full mode first | 技术方案 / Plan |
+| Senior Dev | Tech Lead 之后 / After TL | 详细设计 / Design |
+| Developer | 设计方案确定后 / After design | 代码 / Code |
+| Reviewer | 代码写完自动 / After code | 审查报告 / Review |
+| Integrator | 审查通过后自动 / After review | 测试+经验 / Test+Learn |
 
 ---
 
-## 文件结构
+## 文件结构 / File Structure
 
 ```
-multi-agent-dev/                     ← 这个仓库（全局安装一次）
+multi-agent-dev/                     ← 这个仓库（全局一次）this repo (once)
 ├── README.md
 ├── LICENSE
 └── .claude/
-    ├── agents/                      → 复制到 ~/.claude/agents/
+    ├── agents/                      → ~/.claude/agents/
     │   ├── tech-lead.md
     │   ├── senior-dev.md
     │   ├── developer.md
     │   ├── reviewer.md
     │   └── integrator.md
-    └── skills/multi-agent-dev/      → 复制到 ~/.claude/skills/
-        ├── SKILL.md                 # 引擎
+    └── skills/multi-agent-dev/      → ~/.claude/skills/
+        ├── SKILL.md                 # Engine / 引擎
         ├── agents.json
-        ├── pattern-registry.md      # 跨项目知识库
-        └── project-init-template/   # 新项目自动生成
+        ├── pattern-registry.md      # Knowledge base / 知识库
+        └── project-init-template/   # Templates / 模板
 ```
 
 ---
 
-## 常见场景速查
+## 速查 / Quick Reference
 
-| 我想... | 命令 |
+| 我想... / I want to... | 命令 / Command |
 |---------|------|
-| 开发新功能 | `/multi-agent-dev 添加导出Excel功能` |
-| 重构一个模块 | `/multi-agent-dev 拆分OrderService` |
-| 修个按钮样式 | `/multi-agent-dev [quick] 修复按钮颜色` |
-| 改个配置 | `/multi-agent-dev [quick] 更新API地址` |
-| 只审查代码 | `/multi-agent-dev stage 4` |
-| 继续上次中断的 | `/multi-agent-dev resume` |
+| 开发新功能 / New feature | `/multi-agent-dev Add export` |
+| 重构模块 / Refactor | `/multi-agent-dev Split OrderService` |
+| 修样式 / Fix style | `/multi-agent-dev [quick] Fix button` |
+| 只审查 / Review only | `/multi-agent-dev stage 4` |
+| 继续中断 / Resume | `/multi-agent-dev resume` |
 
 ---
 
