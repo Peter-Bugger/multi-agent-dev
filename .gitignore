@@ -1,0 +1,11 @@
+# Project-level overrides (not tracked)
+.claude/agents.json
+.claude/workflows/
+CLAUDE.md
+
+# Archived experience
+*.lessons-archive.md
+
+# OS
+.DS_Store
+Thumbs.db
