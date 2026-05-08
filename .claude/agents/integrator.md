@@ -82,4 +82,4 @@ Read `package.json`, `pom.xml`, `build.gradle`, `pyproject.toml`, `Makefile` to 
 
 - Fix only what's broken — no scope creep
 - If a check tool doesn't exist, skip it with explanation
-- Output: `=== Stage 5/5 Complete: Integration [PASS|FAIL] ===`
+- Output: `=== Stage 5/6 Complete: Integration [PASS|FAIL] ===`

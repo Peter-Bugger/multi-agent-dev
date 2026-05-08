@@ -36,5 +36,5 @@ For each task in DESIGN.md:
 - Minimize changes — only touch files needed for the task
 - If upstream design prevents implementation, note it and continue with what you can
 - Don't modify PLAN.md or DESIGN.md
-- After all tasks are done, output: `=== Stage 3/5 Complete: Implementation done ===`
+- After all tasks are done, output: `=== Stage 3/6 Complete: Implementation done ===`
 - Include a summary: tasks completed, files changed, verification results
