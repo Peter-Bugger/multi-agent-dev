@@ -1,7 +1,7 @@
 # Multi-Agent Dev / 多Agent开发工作流【基于Claude code 的 subagent模式的一个用于开发驱动AI的工作流】
 
-> Two commands to install, one slash command to use. Complex tasks use full 5-stage pipeline, simple fixes use quick 2-stage mode.
-> 两行命令安装，一个斜杠命令使用。复杂功能走完整5阶段，简单改动走快速2阶段。
+> Two commands to install, one slash command to use. Complex tasks use full 6-stage pipeline, simple fixes use quick 2-stage mode.
+> 两行命令安装，一个斜杠命令使用。复杂功能走完整6阶段，简单改动走快速2阶段。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -42,11 +42,11 @@ First use auto-detects project tech stack and creates project files.
 /multi-agent-dev <task description>
 ```
 
-5 stages, each a dedicated agent:
+6 stages, each a dedicated agent:
 
 ```
-Tech Lead → Senior Dev → Developer → Reviewer → Integrator
-    Plan       Design        Code        Review      Verify
+Product Manager → Tech Lead → Senior Dev → Developer → Reviewer → Integrator
+   Product        Plan        Design        Code        Review      Verify
 ```
 
 Reviewer finds bugs → auto back to Developer → re-review, max 3 cycles.
@@ -94,15 +94,15 @@ Developer → Integrator
 │  │ workflow engine     definitions        base [global|stack:xxx]   │ │
 │  └─────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────┬───────────────────────────────────┘
-                                    │ dispatches 5 agents
+                                    │ dispatches 6 agents
 ┌───────────────────────────────────▼───────────────────────────────────┐
 │                     Agent Layer (roles, install once)                  │
 │                     ~/.claude/agents/                                  │
 │                                                                       │
-│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
-│  │Tech Lead │──→│Senior Dev│──→│Developer │──→│Reviewer  │──→│Integrator│
-│  │   Plan    │   │  Design  │   │   Code   │   │  Review  │   │  Verify  │
-│  └──────────┘   └──────────┘   └──────────┘   └────┬─────┘   └────┬─────┘
+│  ┌────────────┐ ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+│  │Product Mgr │→│Tech Lead │──→│Senior Dev│──→│Developer │──→│Reviewer  │──→│Integrator│
+│  │  Product   │ │   Plan   │   │  Design  │   │   Code   │   │  Review  │   │  Verify  │
+│  └────────────┘ └──────────┘   └──────────┘   └──────────┘   └────┬─────┘   └────┬─────┘
 │                                                    │ Bugs found  │
 │                                          ┌─────────┘             │
 │                                          │ Auto back to Developer │
@@ -144,11 +144,12 @@ New projects auto-inherit matching patterns from the global registry.
 
 ---
 
-## 5 Roles
+## 6 Roles
 
 | Role | When | Output |
 |------|------|--------|
-| Tech Lead | Full mode first | Plan |
+| Product Manager | Full mode first | Product brief + PRD |
+| Tech Lead | After PM | Plan |
 | Senior Dev | After Tech Lead | Detailed design + tasks |
 | Developer | After design confirmed | Code |
 | Reviewer | After code (auto) | Review report |
@@ -164,6 +165,7 @@ multi-agent-dev/                     ← This repo (install once)
 ├── LICENSE
 └── .claude/
     ├── agents/                      → ~/.claude/agents/
+    │   ├── product-manager.md
     │   ├── tech-lead.md
     │   ├── senior-dev.md
     │   ├── developer.md
@@ -225,11 +227,11 @@ cp -r .claude/skills ~/.claude/
 /multi-agent-dev <任务描述>
 ```
 
-5 个阶段，每个阶段一个独立 Agent：
+6 个阶段，每个阶段一个独立 Agent：
 
 ```
-Tech Lead → Senior Dev → Developer → Reviewer → Integrator
-  方案设计    详细设计        写代码       审查       集成验证
+Product Manager → Tech Lead → Senior Dev → Developer → Reviewer → Integrator
+   产品方向        方案设计    详细设计        写代码       审查       集成验证
 ```
 
 审查发现 BUG → 自动回到 Developer 修复 → 重新审查，最多 3 轮。
@@ -274,18 +276,18 @@ Developer → Integrator
 │  ┌─────────────────────────────────────────────────────────────────┐ │
 │  │ SKILL.md          agents.json        pattern-registry.md        │ │
 │  │ 命令解析+流程编排    全局角色定义         跨项目经验库               │ │
-│  │ [完整5阶段/快速2阶段/ 单阶段/恢复]          [global | stack:xxx]   │ │
+│  │ [完整6阶段/快速2阶段/ 单阶段/恢复]          [global | stack:xxx]   │ │
 │  └─────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────┬───────────────────────────────────────┘
-                                │ 调度 5 个 Agent
+                                │ 调度 6 个 Agent
 ┌───────────────────────────────▼───────────────────────────────────────┐
 │                     Agent 层（角色，全局安装一次）                       │
 │                     ~/.claude/agents/                                  │
 │                                                                       │
-│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
-│  │Tech Lead │──→│Senior Dev│──→│Developer │──→│Reviewer  │──→│Integrator│
-│  │ 方案设计  │   │ 详细设计  │   │ 写代码    │   │ 审查     │   │ 集成验证  │
-│  └──────────┘   └──────────┘   └──────────┘   └────┬─────┘   └────┬─────┘
+│  ┌────────────┐ ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+│  │Product Mgr │→│Tech Lead │──→│Senior Dev│──→│Developer │──→│Reviewer  │──→│Integrator│
+│  │  产品方向   │ │ 方案设计  │   │ 详细设计  │   │ 写代码    │   │ 审查     │   │ 集成验证  │
+│  └────────────┘ └──────────┘   └──────────┘   └──────────┘   └────┬─────┘   └────┬─────┘
 │                                                    │ 发现BUG     │
 │                                          ┌─────────┘             │
 │                                          │ 自动回到Developer修复   │
@@ -327,11 +329,12 @@ Integrator 每次收尾自动记录经验：
 
 ---
 
-## 5 个角色
+## 6 个角色
 
 | 角色 | 出场 | 产出 |
 |------|------|------|
-| Tech Lead | 完整模式第一步 | 技术方案 |
+| Product Manager | 完整模式第一步 | 产品简报 + PRD |
+| Tech Lead | PM 之后 | 技术方案 |
 | Senior Dev | Tech Lead 之后 | 详细设计 + 任务拆解 |
 | Developer | 设计方案确定后 | 代码 |
 | Reviewer | 代码写完自动触发 | 审查报告 |
@@ -347,6 +350,7 @@ multi-agent-dev/                     ← 这个仓库（全局安装一次）
 ├── LICENSE
 └── .claude/
     ├── agents/                      → ~/.claude/agents/
+    │   ├── product-manager.md
     │   ├── tech-lead.md
     │   ├── senior-dev.md
     │   ├── developer.md
