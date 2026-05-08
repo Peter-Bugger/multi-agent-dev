@@ -1,18 +1,18 @@
 ---
 name: multi-agent-dev
-description: Execute a 5-stage multi-agent development workflow (Tech Lead → Senior Dev → Developer → Reviewer → Integrator). Use for any software development task: features, refactoring, bug fixes, or new projects. Produces PLAN.md, DESIGN.md, REVIEW.md artifacts. Supports [quick] mode, single-stage execution, and auto-loop review cycles.
+description: Execute a 6-stage multi-agent development workflow (Product Manager → Tech Lead → Senior Dev → Developer → Reviewer → Integrator). Use for any software development task: features, refactoring, bug fixes, or new projects. Produces PRODUCT_BRIEF.md, PRD.md, PLAN.md, DESIGN.md, REVIEW.md artifacts. Supports [quick] mode, single-stage execution, and auto-loop review cycles.
 ---
 
 # /multi-agent-dev — 多Agent开发工作流
 
-按 **Tech Lead → Senior Developer → Developer → Reviewer → Integrator** 五阶段流程执行开发任务。每个阶段通过 Subagent 独立上下文执行，通过标准文件传递阶段产出，支持 Reviewer/Integrator 最多 3 次重试循环。
+按 **Product Manager → Tech Lead → Senior Developer → Developer → Reviewer → Integrator** 六阶段流程执行开发任务。每个阶段通过 Subagent 独立上下文执行，通过标准文件传递阶段产出，支持 Reviewer/Integrator 最多 3 次重试循环。
 
 ## 使用方法
 
 ```
-/multi-agent-dev <任务描述>           # 完整五阶段流程
-/multi-agent-dev [quick] <任务描述>   # 轻量模式：跳过 Tech Lead + Senior Dev（含 mini-design）
-/multi-agent-dev stage <N>           # 单独执行某个阶段（1-5）
+/multi-agent-dev <任务描述>           # 完整六阶段流程
+/multi-agent-dev [quick] <任务描述>   # 轻量模式：跳过 PM + Tech Lead + Senior Dev（含 mini-design）
+/multi-agent-dev stage <N>           # 单独执行某个阶段（0-5）
 /multi-agent-dev resume              # 恢复中断的工作流（读取 WORKFLOW_STATUS.md）
 ```
 
@@ -32,9 +32,10 @@ description: Execute a 5-stage multi-agent development workflow (Tech Lead → S
 
 | 条件                  | 推荐模式                  |
 | ------------------- | --------------------- |
-| 新功能、跨模块改动、架构变更      | 完整模式（5阶段）             |
+| 新功能、跨模块改动、架构变更、方向不明确  | 完整模式（6阶段）             |
 | Bug 修复、CSS 调整、单文件小改 | `[quick]` 轻量模式        |
 | 已有代码变更，只需审查或集成验证    | `stage 4` 或 `stage 5` |
+| 只需明确产品方向、写PRD     | `stage 0`             |
 | 不确定复杂度              | 完整模式（保守）              |
 
 ### 单阶段执行 `stage <N>`
@@ -45,7 +46,8 @@ description: Execute a 5-stage multi-agent development workflow (Tech Lead → S
 
 | Stage     | 必需的前置文件                 | 无前置文件时的行为                     |
 | --------- | ----------------------- | ----------------------------- |
-| `stage 1` | 无                       | 正常执行（需用户提供任务描述）               |
+| `stage 0` | 无                       | 正常执行（需用户提供产品方向描述）               |
+| `stage 1` | `PRODUCT_BRIEF.md`（可选） | 正常执行（有 PRODUCT_BRIEF 则参考，否则直接用任务描述） |
 | `stage 2` | `PLAN.md`               | 提示用户先运行完整模式生成 PLAN.md         |
 | `stage 3` | `DESIGN.md` + `PLAN.md` | 提示用户先运行 Stage 1-2             |
 | `stage 4` | 代码变更（git diff）          | 基于当前 diff 直接审查，不需 PLAN/DESIGN |
@@ -89,10 +91,11 @@ description: Execute a 5-stage multi-agent development workflow (Tech Lead → S
 
 ## 工作流概览
 
-### 完整模式（5 阶段）
+### 完整模式（6 阶段）
 
 ```
-Stage 1: Tech Lead        ──→  PLAN.md（含需求确认关卡）
+Stage 0: Product Manager   ──→  PRODUCT_BRIEF.md + PRD.md（产品方向明确）
+Stage 1: Tech Lead        ──→  PLAN.md（含需求确认关卡，参考 PRODUCT_BRIEF）
 Stage 2: Senior Developer ──→  DESIGN.md + 任务拆分清单（可修订 PLAN.md）
 Stage 3: Developer        ──→  代码实现 + 逐 Task 本地验证
 Stage 4: Reviewer         ──→  REVIEW.md（git diff 精确范围，可能循环 1-3 次）
@@ -114,6 +117,8 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 
 | 文件                   | 创建于     | 用途                              |
 | -------------------- | ------- | ------------------------------- |
+| `PRODUCT_BRIEF.md`   | Stage 0 | 产品简报：定位、用户画像、竞品分析、MoSCoW范围      |
+| `PRD.md`             | Stage 0 | 产品需求文档：用户故事、验收条件、成功指标          |
 | `PLAN.md`            | Stage 1 | 技术方案：需求确认、技术选型、架构设计、模块拆分、数据流    |
 | `DESIGN.md`          | Stage 2 | 详细设计：接口设计、组件设计、任务拆解清单（含依赖）、验收标准 |
 | `REVIEW.md`          | Stage 4 | 审查报告：BLOCKER/INFO 列表、审查结论       |
@@ -123,9 +128,43 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 
 ## 各阶段详细定义
 
+### Stage 0: Product Manager（产品经理）
+
+**宣言：** `=== Stage 0/6: Product Manager ===`
+
+**执行方式：** 使用 Agent 工具，`subagent_type="product-manager"`，隔离上下文中明确产品方向。
+
+**输入：** 用户的产品方向/功能描述
+
+**输出：** `PRODUCT_BRIEF.md`、`PRD.md`（可选）
+
+**职责：**
+
+1. **信息收集**：先读取项目 README.md 和现有代码结构，理解项目现状
+2. **产品方向明确**：用 Lean Canvas / JTBD / 竞品分析等方法论，输出 PRODUCT_BRIEF.md
+3. **功能范围控制**：用 MoSCoW 明确 Must/Should/Could/Won't，设定成功指标
+4. **PRD 展开**：对 Must have 功能展开 PRD.md（用户故事+验收条件）
+5. **风险识别**：从产品角度列出关键假设和风险
+
+**产物文件位置：** 项目根目录或 `.claude/workflows/`
+
+**完成条件：** PRODUCT_BRIEF.md 已写入，PRD.md 按需已写入。
+
+**检查点：**
+
+```
+>> Stage 0/6 完成。产品方向已明确。输入 /multi-agent-dev resume 继续 Stage 1。
+```
+
+**注意：**
+- 如果任务明确是纯技术改进（无用户感知的代码重构、性能优化等），跳过 PRODUCT_BRIEF 和 PRD，直接输出简化版影响分析后标记完成
+- Tech Lead (Stage 1) 必须以 PRODUCT_BRIEF.md 为输入参考，确保技术方案对齐产品方向
+
+---
+
 ### Stage 1: Tech Lead（技术负责人）
 
-**宣言：** `=== Stage 1/5: Tech Lead ===`
+**宣言：** `=== Stage 1/6: Tech Lead ===`
 
 **执行方式：** 使用 Agent 工具，`subagent_type="tech-lead"`，隔离上下文中分析任务。
 
@@ -201,14 +240,14 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 **检查点：**
 
 ```
->> Stage 1/5 完成。PLAN.md + WORKFLOW_STATUS.md 已生成。输入 /multi-agent-dev resume 继续 Stage 2。
+>> Stage 1/6 完成。PLAN.md + WORKFLOW_STATUS.md 已生成。输入 /multi-agent-dev resume 继续 Stage 2。
 ```
 
 ---
 
 ### Stage 2: Senior Developer（高级开发）
 
-**宣言：** `=== Stage 2/5: Senior Developer ===`
+**宣言：** `=== Stage 2/6: Senior Developer ===`
 
 **执行方式：** 使用 Agent 工具，`subagent_type="senior-dev"`，隔离上下文中审阅和设计。
 
@@ -265,14 +304,14 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 **检查点：**
 
 ```
->> Stage 2/5 完成。DESIGN.md 已生成，任务清单已就绪。输入 /multi-agent-dev resume 继续 Stage 3。
+>> Stage 2/6 完成。DESIGN.md 已生成，任务清单已就绪。输入 /multi-agent-dev resume 继续 Stage 3。
 ```
 
 ---
 
 ### Stage 3: Developer（开发）
 
-**宣言：** `=== Stage 3/5: Developer ===`
+**宣言：** `=== Stage 3/6: Developer ===`
 
 **执行方式：** 使用 Agent 工具，`subagent_type="developer"`，在隔离上下文中实现代码。
 
@@ -324,14 +363,14 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 **检查点：**
 
 ```
->> Stage 3/5 完成。代码实现完毕，所有 Task 验证通过。输入 /multi-agent-dev resume 继续 Stage 4。
+>> Stage 3/6 完成。代码实现完毕，所有 Task 验证通过。输入 /multi-agent-dev resume 继续 Stage 4。
 ```
 
 ---
 
 ### Stage 4: Reviewer（审查）
 
-**宣言：** `=== Stage 4/5: Reviewer ===`
+**宣言：** `=== Stage 4/6: Reviewer ===`
 
 **执行方式：** 使用 Agent 工具，`subagent_type="reviewer"`，独立上下文审查。
 
@@ -418,27 +457,27 @@ while cycle < 3:
 **检查点（APPROVED → 自动进入 Stage 5）：**
 
 ```
->> Stage 4/5 完成。代码审查通过，REVIEW.md 结论为 APPROVED。自动进入 Stage 5...
+>> Stage 4/6 完成。代码审查通过，REVIEW.md 结论为 APPROVED。自动进入 Stage 5...
 ```
 
 **检查点（REQUEST_CHANGES → 自动循环）：**
 
 ```
->> Stage 4/5 — REQUEST_CHANGES。REVIEW.md 中有 N 个 BLOCKER。自动触发 Stage 3 修复模式...
+>> Stage 4/6 — REQUEST_CHANGES。REVIEW.md 中有 N 个 BLOCKER。自动触发 Stage 3 修复模式...
 >> [Developer 修复完成] → 重新进入 Stage 4（第 X/3 次循环）...
 ```
 
 **检查点（NEEDS_DISCUSSION → 暂停）：**
 
 ```
->> Stage 4/5 — NEEDS_DISCUSSION。已循环 3 次仍有 N 个 BLOCKER 未解决。请用户决策。
+>> Stage 4/6 — NEEDS_DISCUSSION。已循环 3 次仍有 N 个 BLOCKER 未解决。请用户决策。
 ```
 
 ---
 
 ### Stage 5: Integrator（集成）
 
-**宣言：** `=== Stage 5/5: Integrator ===`
+**宣言：** `=== Stage 5/6: Integrator ===`
 
 **执行方式：** 使用 Agent 工具，`subagent_type="integrator"`，独立上下文运行全量构建和测试。
 
@@ -488,6 +527,7 @@ while cycle < 3:
 ## 工作流阶段回顾
 | 阶段 | 状态 |
 |------|------|
+| Stage 0: Product Manager | ✅ |
 | Stage 1: Tech Lead | ✅ |
 | Stage 2: Senior Dev | ✅ |
 | Stage 3: Developer | ✅ |
@@ -501,7 +541,7 @@ while cycle < 3:
 **检查点：**
 
 ```
->> Stage 5/5 完成。集成验证通过，工作流结束。
+>> Stage 5/6 完成。集成验证通过，工作流结束。
 ```
 
 ---
@@ -509,8 +549,8 @@ while cycle < 3:
 ## 全局规则（所有阶段必须遵守）
 
 1. **阶段隔离**：每个阶段使用独立 Agent（`subagent_type` 指定角色），主会话只做编排和检查点输出。
-2. **信息传递**：通过标准文件（PLAN.md / DESIGN.md / REVIEW.md / WORKFLOW_STATUS.md）传递信息。每个 Agent prompt 中明确指定要读取的输入文件路径。
-3. **透明输出**：每个阶段开始时输出 `=== Stage N/5: [角色名] ===`，结束时输出该阶段交付物摘要 + 检查点提示。
+2. **信息传递**：通过标准文件（PRODUCT_BRIEF.md / PRD.md / PLAN.md / DESIGN.md / REVIEW.md / WORKFLOW_STATUS.md）传递信息。每个 Agent prompt 中明确指定要读取的输入文件路径。
+3. **透明输出**：每个阶段开始时输出 `=== Stage N/6: [角色名] ===`，结束时输出该阶段交付物摘要 + 检查点提示。
 4. **项目无关性**：通过读取项目根目录配置文件自动发现项目类型和验证命令。
 5. **质量优先**：不跳过任何阶段。轻量模式 `[quick]` 是唯一例外。
 6. **问题上报**：任何阶段发现上游问题，可以指出，Senior Dev 可直接修订 PLAN.md，其他角色记录到 WORKFLOW_STATUS.md 不上游修改。
@@ -538,9 +578,10 @@ while cycle < 3:
 ## Mode
 [Full] / [Quick]
 
-## Current Stage: <Stage N/5: 角色名>
+## Current Stage: <Stage N/6: 角色名>
 
 ## Completed Stages
+- [x] Stage 0: Product Manager
 - [x] Stage 1: Tech Lead
 - [x] Stage 2: Senior Developer
 - [ ] Stage 3: Developer
@@ -626,7 +667,7 @@ Quick 模式 Developer 在写代码前必须先完成 mini-design，防止方向
 # Workflow Status
 ## Task: <任务描述>
 ## Mode: Quick
-## Current Stage: Stage 3/5: Developer
+## Current Stage: Stage 3/6: Developer
 
 ## Quick Design
 - **文件：** `<文件路径>`
