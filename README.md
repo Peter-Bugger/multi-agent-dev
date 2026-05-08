@@ -1,4 +1,4 @@
-# Multi-Agent Dev / 多Agent开发工作流
+# Multi-Agent Dev / 多Agent开发工作流【基于Claude code 的 subagent模式的一个用于开发驱动AI的工作流】
 
 > Two commands to install, one slash command to use. Complex tasks use full 5-stage pipeline, simple fixes use quick 2-stage mode.
 > 两行命令安装，一个斜杠命令使用。复杂功能走完整5阶段，简单改动走快速2阶段。
