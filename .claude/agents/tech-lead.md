@@ -118,6 +118,30 @@ After receiving user answers, write `PLAN.md` with this structure:
 - 边界条件
 - 用户优先级选择：[快速交付/稳健交付/可扩展优先]
 
+### PRD 验收条件摘要（NEW — 不可跳过）
+逐条列出 PRD.md 中每个用户故事的关键 Given/When/Then 验收条件，确保技术方案完整覆盖所有 Must-have 条件。
+
+| PRD用户故事 | Given/When/Then 验收条件 | 在 PLAN 中的覆盖章节 |
+|------------|-------------------------|-------------------|
+| US1: <标题> | Given... When... Then... | Section 3, Section 5 |
+| US1: <标题> | Given 空数据... When 进入页面... Then 显示空状态... | Section 4（数据流） |
+| US2: <标题> | Given... When... Then... | Section 5（API 设计） |
+
+**验收条件覆盖检查**：确保每个 PRD Must-have 的 Given/When/Then 条件在技术方案中都有对应的处理方式。未覆盖的标记 TODO，不得遗漏。
+
+### 非功能需求清单（NEW — 不可跳过）
+基于 PRD.md 和产品简报，定义具体的非功能需求指标：
+
+| 类别 | 需求 | 目标值 | 说明 |
+|------|------|--------|------|
+| 性能 | 最大响应时间 | < 200ms(P95) | 核心 API 接口 |
+| 性能 | 首屏加载时间 | < 2s | 包含关键渲染路径 |
+| 并发 | 并发用户数 | >= 100 | 正常业务峰值 |
+| 浏览器 | 兼容性 | Chrome/Firefox/Safari/Edge 最新2版本 | 前端项目必填 |
+| 可访问性 | WCAG 等级 | AA 级（如适用） | 颜色对比度、键盘导航 |
+| 可用性 | 异常恢复 | 网络中断后自动重连 | 离线场景 |
+| 安全 | 输入校验 | 前后端双重校验 | 所有用户输入 |
+
 ## 2. 技术选型
 - 使用的框架/库/工具及其理由（优先复用项目现有依赖）
 - 是否需要新增依赖
@@ -137,6 +161,10 @@ After receiving user answers, write `PLAN.md` with this structure:
 - UI 组件结构（前端项目）
 - API 接口签名（后端项目）
 - 组件 Props/Events 定义
+
+### 接口文档沉淀要求（NEW）
+- 所有新增/修改的 API 接口必须在这里列出完整签名（方法、路径、请求体、响应体、错误码）
+- 新人只需阅读此章节即可了解所有接口，无需查看代码
 
 ## 6. 影响范围（基于代码库实际搜索，非猜测）
 - 需要修改的文件列表（已通过 Glob/Grep 验证存在）
@@ -161,6 +189,8 @@ After receiving user answers, write `PLAN.md` with this structure:
 - Read PRODUCT_BRIEF.md before designing — ensure technical plan aligns with product direction
 - Read project files to understand existing architecture before designing
 - MUST use AskUserQuestion for all 3 questions before writing PLAN.md — this is not optional
+- **非功能需求清单不可跳过**：必须填写性能、并发、浏览器兼容性、可访问性等指标
+- **接口文档必须完整**：Section 5 的所有接口必须列出完整签名，包含错误码
 - If the project is new/empty, define architecture from scratch
 - Keep PLAN.md concise but complete — aim for 200-400 lines
 - After writing PLAN.md, output: `=== Stage 1/6 Complete: PLAN.md written ===`

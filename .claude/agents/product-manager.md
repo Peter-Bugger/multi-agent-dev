@@ -163,7 +163,25 @@ tools: Read, Glob, Grep, Bash(git *), Bash(ls *), WebSearch, WebFetch
 
 ## 用户故事
 - 作为 [角色]，我想要 [功能]，以便 [价值]
-- 验收条件：Given/When/Then
+
+### 验收条件（严格 Given/When/Then 格式）
+所有验收条件必须使用 Given/When/Then 格式，不接受模糊描述。
+
+**正常场景验收**：
+- Given <前置条件>，When <触发操作>，Then <期望结果>
+- Given <前置条件>，When <触发操作>，Then <期望结果>
+
+**异常状态验收（不可跳过）**：
+- Given <空数据状态>，When <进入页面>，Then <显示空状态占位符，提示用户操作>
+- Given <网络不可用>，When <触发数据请求>，Then <显示网络异常提示，提供重试按钮>
+- Given <用户无权限>，When <访问受限功能>，Then <显示权限不足提示，引导申请>
+- Given <请求超时>，When <数据请求超过 X 秒>，Then <显示超时提示，自动重试或手动重试>
+
+**用户交互边界验收（不可跳过）**：
+- Given <输入框有最大长度限制>，When <输入超过最大长度>，Then <阻止输入并提示字符上限>
+- Given <用户快速重复点击按钮>，When <300ms 内连续点击 3 次>，Then <仅触发一次操作>
+- Given <并发操作场景>，When <同时触发多个请求>，Then <正确处理，不出现数据竞态>
+- Given <数据为空>，When <提交空表单>，Then <显示字段必填提示>
 
 ## 交互流程
 - 正常流程（Happy Path）
@@ -184,6 +202,9 @@ tools: Read, Glob, Grep, Bash(git *), Bash(ls *), WebSearch, WebFetch
 - **数据说话** — 竞品分析要具体，用户故事要有场景
 - **拥抱不确定性** — 列出假设和风险，标记需要验证的
 - **必须使用 AskUserQuestion** — Step B 的两次询问不可跳过
+- **PRD 验收条件必须严格使用 Given/When/Then 格式**，不接受模糊描述
+- **PRD 必须包含异常状态验收**：空数据、加载失败、权限不足、网络超时
+- **PRD 必须包含用户交互边界验收**：最大输入长度、并发操作、快速重复点击
 - 如果项目是纯技术改进（无用户感知），直接输出简化版（跳过 PRODUCT_BRIEF，只写影响分析）
 - 输出完后标记：`=== Stage 0/6 Complete: PRODUCT_BRIEF.md + PRD.md written ===`
 

@@ -84,8 +84,35 @@ description: Execute a 6-stage multi-agent development workflow (Product Manager
 
 **技术栈检测**：通过分析项目文件自动推断（如 `package.json` → Vue3/React，`pom.xml` → SpringBoot3/Java）。
 
+**Monorepo 支持（NEW）：**
+
+当项目根目录下有多个 `package.json` / `pom.xml` / `build.gradle` 文件（不同子目录），或根目录有 `lerna.json` / `nx.json` / `turbo.json` / `pnpm-workspace.yaml` 时，判定为 Monorepo 结构。
+
+Monorepo 检测流程：
+1. 搜索项目根目录及一级子目录中的项目配置文件
+2. 如发现多个子项目 → 使用 `AskUserQuestion` 让用户选择目标子项目
+3. 选定的子项目路径作为工作目录，工作流文件写入 `.claude/workflows/<subproject-name>/`
+4. 后续所有文件读写以子项目路径为基准
+5. 技术栈检测基于子项目配置文件进行
+
+AskUserQuestion 格式：
+```json
+{
+  "question": "检测到 Monorepo 结构，请选择本次开发的目标子项目：",
+  "header": "选择子项目",
+  "options": [
+    { "label": "packages/web", "description": "Vue3 前端应用" },
+    { "label": "packages/api", "description": "SpringBoot3 后端服务" },
+    { "label": "packages/shared", "description": "共享类型库" }
+  ]
+}
+```
+
+如用户选择非标准子项目路径，允许手动输入。
+
 **角色定义加载**：
 - 默认使用全局 `~/.claude/skills/multi-agent-dev/agents.json`
+- **多语言支持（NEW）**：英文用户可使用 `agents-en.json`。切换到英文：将 `agents-en.json` 重命名为 `agents.json`（备份原文件），或将 `agents-en.json` 内容复制到项目级 `.claude/agents.json` 中
 - 项目可在 `.claude/agents.json` 中覆盖特定角色（只需写要覆盖的角色，其余沿用全局）
 - 加载时先读全局，再 merge 项目级覆盖
 
@@ -141,6 +168,9 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 
 ## 各阶段详细定义
 
+> **详细定义文档：** `docs/stage-definitions.md` 包含完整的 Stage 0-5 定义、模板、检查点。
+> 编排者在需要完整 Plan 模板、Review 循环伪代码、Design 确认弹窗等详细信息时，应读取该文件。
+
 ### Stage 0: Product Manager / Project Manager（产品经理 + 项目经理）
 
 **宣言：** `=== Stage 0/6: Product Manager / Project Manager ===`
@@ -188,14 +218,36 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 **检查点：**
 
 ```
->> Stage 0/6 完成。产品方向和项目范围已明确。自动进入 Stage 1...
+>> Stage 0/6 完成。PRODUCT_BRIEF.md + PRD.md 已生成。
 ```
 
+**Stage 0 完成确认（AskUserQuestion — NEW）：**
+
+Stage 0 完成后，编排者必须使用 `AskUserQuestion` 暂停并让用户确认产品方向是否正确：
+
+```json
+{
+  "question": "Stage 0 完成。PRODUCT_BRIEF.md 和 PRD.md 已生成。\n\n核心范围：<Must have 列表摘要>\n关键假设：<1-2 个关键假设>\n\n请确认产品方向是否正确，是否进入技术方案阶段？",
+  "header": "产品方向确认",
+  "options": [
+    {
+      "label": "确认，进入技术方案",
+      "description": "产品方向和范围正确，直接进入 Stage 1 技术方案设计。"
+    },
+    {
+      "label": "需要调整",
+      "description": "产品方向或范围有需要修改的地方，我会在回复中说明。"
+    }
+  ]
+}
+```
+
+用户确认后自动进入 Stage 1。如用户选择"需要调整"，等待用户反馈后重新进入 Stage 0 修正。
+
 **注意：**
-- 如果任务明确是纯技术改进（无用户感知的代码重构、性能优化等），跳过 PRODUCT_BRIEF 和 PRD，直接输出简化版影响分析后标记完成
-- **AskUserQuestion 询问不可跳过**：项目优先级和范围确认必须在输出 PRODUCT_BRIEF.md 前完成
+- 如果任务是纯技术改进（无用户感知的代码重构、性能优化等），跳过 PRODUCT_BRIEF 和 PRD，跳过此确认步骤，直接输出简化版影响分析后进入 Stage 1
+- **AskUserQuestion 询问不可跳过**：Stage 0 内的项目优先级和范围确认 + 此处的产品方向确认必须在进入 Stage 1 前完成
 - Tech Lead (Stage 1) 必须以 PRODUCT_BRIEF.md 为输入参考，确保技术方案对齐产品方向
-- **自动转换**：Stage 0 完成后自动进入 Stage 1，无需用户手动 /multi-agent-dev resume
 
 ---
 
@@ -216,13 +268,14 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
    - **问题 2 — 技术方案权衡**：根据具体场景展示 2-3 个技术方案（如：最小改动 / 适度抽象 / 全面重构），每个附带具体利弊
    - **问题 3 — 可扩展性要求**（多选）：询问未来 3-6 月可能的变化方向，选项根据具体场景定制
    - 不得跳过此步骤直接写 PLAN.md
-2. **代码库验证**：确认后，用 Glob/Grep/Agent 搜索代码库验证涉及的文件和接口真实存在，不得凭空猜测文件路径。
-3. 技术选型：推荐适合项目的技术方案（框架、库、工具），优先复用项目已有依赖。
-4. 架构设计：设计整体架构，明确模块边界。
-5. 模块拆分：将任务拆分为逻辑模块，标注模块间依赖关系。
-6. 数据流设计：说明数据流转路径和状态管理方案。
-7. API/接口设计：定义核心接口签名。
-8. **可扩展性考量**：基于用户的 AskUserQuestion 回答，设计扩展点，说明为扩展做的取舍。
+2. **PRD 验收条件提取（NEW）**：从 PRD.md 中逐条提取所有用户故事的 Given/When/Then 验收条件，填入 PLAN.md Section 1 的「PRD 验收条件摘要」表格中，确保每条验收条件在技术方案中都有对应的处理章节。
+3. **代码库验证**：确认后，用 Glob/Grep/Agent 搜索代码库验证涉及的文件和接口真实存在，不得凭空猜测文件路径。
+4. 技术选型：推荐适合项目的技术方案（框架、库、工具），优先复用项目已有依赖。
+5. 架构设计：设计整体架构，明确模块边界。
+6. 模块拆分：将任务拆分为逻辑模块，标注模块间依赖关系。
+7. 数据流设计：说明数据流转路径和状态管理方案。
+8. API/接口设计：定义核心接口签名，所有接口必须列出完整签名含错误码。
+9. **可扩展性考量**：基于用户的 AskUserQuestion 回答，设计扩展点，说明为扩展做的取舍。
 
 **PLAN.md 必须包含的内容：**
 
@@ -234,6 +287,21 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 - 非功能需求（性能、可维护性、安全性）
 - 边界条件
 - 用户优先级选择：[来自 AskUserQuestion 的回答]
+
+### PRD 验收条件摘要（NEW — 不可跳过）
+逐条列出 PRD.md 中每个用户故事的关键 Given/When/Then 验收条件。
+
+| PRD用户故事 | Given/When/Then 验收条件 | 在 PLAN 中的覆盖章节 |
+|------------|-------------------------|-------------------|
+| US1: <标题> | Given... When... Then... | Section 3, Section 5 |
+| US1: <标题> | Given 空数据... When 进入页面... Then 显示空状态... | Section 4（数据流） |
+
+### 非功能需求清单（NEW — 不可跳过）
+| 类别 | 需求 | 目标值 | 说明 |
+|------|------|--------|------|
+| 性能 | 最大响应时间 | < 200ms(P95) | 核心 API 接口 |
+| 并发 | 并发用户数 | >= 100 | 正常业务峰值 |
+| 浏览器 | 兼容性 | Chrome/Firefox/Safari/Edge 最新2版本 | 前端项目必填 |
 
 ## 2. 技术选型
 - 使用的框架/库/工具及其理由（优先复用项目现有依赖）
@@ -254,6 +322,9 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 - UI 组件结构（前端项目）
 - API 接口签名（后端项目）
 - 组件 Props/Events 定义
+
+### 接口文档沉淀要求（NEW）
+所有新增/修改的 API 接口必须在 Section 5 中列出完整签名（方法、路径、请求体、响应体、错误码）。
 
 ## 6. 影响范围（基于代码库实际搜索，非猜测）
 - 需要修改的文件列表（已通过 Glob/Grep 验证存在）
@@ -276,7 +347,7 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 **检查点：**
 
 ```
->> Stage 1/6 完成。PLAN.md + WORKFLOW_STATUS.md 已生成。输入 /multi-agent-dev resume 继续 Stage 2。
+>> Stage 1/6 完成。PLAN.md + WORKFLOW_STATUS.md 已生成。自动进入 Stage 2...
 ```
 
 ---
@@ -287,7 +358,7 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 
 **执行方式：** 使用 Agent 工具，`subagent_type="senior-dev"`，隔离上下文中审阅和设计。
 
-**输入：** `PLAN.md`
+**输入：** `PRD.md` + `PLAN.md`
 
 **输出：** `DESIGN.md`（更新 `WORKFLOW_STATUS.md`）
 
@@ -321,7 +392,12 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 - 类图/职责说明（后端）
 - 关键逻辑流程
 
-## 4. 任务拆解清单
+## 4. 需求追溯矩阵（NEW）
+| PRD用户故事/验收条件 | 对应Task编号 | 测试文件 | 测试场景数 | 状态 |
+|---------------------|-------------|---------|-----------|------|
+| US1: <故事标题> — Given...When...Then... | Task 1, Task 2 | `xxx.test.ts` | 4 | ⬜ |
+
+## 5. 任务拆解清单
 
 ### Task 1: <标题>
 - **文件：** `<文件路径>`
@@ -330,6 +406,10 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 - **被依赖：** Task N, Task M
 - **验收标准：** <如何验证>
 - **验证命令：** `<具体命令，不可用"相关验证"代替>`
+- **测试要求（NEW）：**
+  - **测试文件：** `<建议的测试文件路径>`
+  - **测试场景：** 正常路径 / 边界条件 / 错误路径 / 空值空列表
+  - **PRD 验收条件映射：** <对应 PRD.md 中哪个 Given/When/Then 条件>
 - **预估工时：** <时间>
 
 ### Task 2: <标题>
@@ -338,10 +418,33 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 
 **完成条件：** DESIGN.md 已写入，WORKFLOW_STATUS.md 已更新（Task 列表已录入）。
 
+**设计确认询问（AskUserQuestion，超时暂停 — CHANGED）：**
+
+Stage 2 完成后，编排者必须使用 `AskUserQuestion` 展示设计摘要并询问用户是否确认。此询问 120 秒超时，超时后**暂停流程**（而非自动确认），提示用户稍后通过 `/multi-agent-dev resume` 继续。这是防止用户在不知情的情况下自动确认进入开发阶段的保护措施。
+
+```json
+{
+  "question": "DESIGN.md 已完成，共 N 个 Task。关键设计决策：<1-2 条摘要>。是否需要调整？",
+  "header": "设计确认",
+  "options": [
+    {
+      "label": "确认，进入开发",
+      "description": "设计无需调整，直接进入 Stage 3 开发阶段。"
+    },
+    {
+      "label": "需要调整",
+      "description": "对某些设计决策有修改意见，我会在回复中说明。"
+    }
+  ]
+}
+```
+
+**注意：** 120 秒超时后暂停流程（不自动确认），通知用户："DESIGN.md 已完成，超时未确认。请检查设计后输入 `/multi-agent-dev resume` 继续进入 Stage 3 开发阶段。"
+
 **检查点：**
 
 ```
->> Stage 2/6 完成。DESIGN.md 已生成，任务清单已就绪。输入 /multi-agent-dev resume 继续 Stage 3。
+>> Stage 2/6 完成。DESIGN.md 已生成，任务清单已就绪。自动进入 Stage 3...
 ```
 
 ---
@@ -360,9 +463,11 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 
 1. 按 DESIGN.md 的任务拆解清单逐个实现，按依赖顺序执行。
 2. 每完成一个 Task，立即运行 DESIGN.md 中指定的验证命令，验证通过才能标记完成。
-3. 每完成一个 Task，更新 WORKFLOW_STATUS.md 中该 Task 的状态为 ✅ done 并记录验证结果。
-4. 遇到上游设计问题：在 WORKFLOW_STATUS.md 的 Issues Log 记录，标注 Blocked，继续执行可完成的部分。
-5. 不修改 DESIGN.md 或 PLAN.md（问题上报即可）。
+3. **生成单元测试（MANDATORY）**：每个 Task 实现后，按 DESIGN.md 中该 Task 的「测试要求」生成对应测试文件，覆盖正常路径 / 边界条件 / 错误路径 / 空值空列表四个维度。运行测试确认通过后标记 Task 为 done。
+4. 每完成一个 Task，更新 WORKFLOW_STATUS.md 中该 Task 的状态为 ✅ done 并记录验证结果和测试文件路径。
+5. 遇到上游设计问题：在 WORKFLOW_STATUS.md 的 Issues Log 记录，标注 Blocked，继续执行可完成的部分。
+6. 遇到需求冲突：使用 `AskUserQuestion` 弹窗确认处理方向，将决策记录到 Issues Log。
+7. 不修改 DESIGN.md 或 PLAN.md（问题上报即可）。
 
 **修复模式（Reviewer 自动循环触发）：**
 
@@ -380,6 +485,26 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 你是 Developer，进入修复模式。读取 REVIEW.md，只修复 🔴 BLOCKER 问题。
 每个 BLOCKER 修复后标注 [已修复]。不做任何 BLOCKER 列表之外的改动。
 全部修复后运行验证命令确认通过。
+```
+
+**覆盖率修复模式（Integrator 自动循环触发 — NEW）：**
+
+当 Developer 由 Integrator 的 coverage auto-loop 触发（覆盖率 < 80%）时，进入覆盖率修复模式：
+
+- **输入：** 覆盖率报告（不达标的文件列表和未覆盖的代码行）
+- **职责：** 仅补充测试用例，不修改任何业务代码。为未覆盖的关键业务逻辑路径添加测试
+- **验证：** 补充测试后运行该测试文件确认通过
+- **输出：** 标注已补充的测试用例和位置
+- **规则：** 只添加测试文件/测试用例，不动业务代码；每个未覆盖路径至少添加 1 个测试用例；最多 2 次循环
+- **循环：** 修复完成 → 返回 Integrator 重新检查覆盖率 → 仍不达标 → 再次修复（最多 2 次）→ 2 次后仍不达标 → 标记 ⚠️ 覆盖率不达标，继续交付流程
+
+**覆盖率修复模式 prompt 要点（编排者必须包含）：**
+
+```
+你是 Developer，进入覆盖率修复模式。覆盖率报告显示以下文件/路径未覆盖：
+<列出未覆盖的文件和行>
+请仅补充测试用例，不修改任何业务代码。每个未覆盖的路径至少添加 1 个测试用例。
+补充完成后运行测试确认通过。这是第 X/2 次覆盖率修复循环。
 ```
 
 **验证命令（DESIGN.md 中每个 Task 已指定，不可跳过）：**
@@ -420,8 +545,11 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 1. **精确变更范围**：运行 `git diff --stat` 或 `git diff main..HEAD` 获取本次变更的精确文件列表和行数，审查对象只包括 diff 中的代码。
 2. 审查代码质量：正确性、可维护性、性能、安全性。
 3. 审查设计一致性：代码是否遵循 DESIGN.md 的设计。
-4. 审查边界情况：错误处理、空状态、加载状态、极端输入。
-5. 问题分类记录，每个问题附带精确文件和行号。
+4. **需求追溯检查（NEW）**：逐用户故事检查 PRD 验收条件是否全部满足，输出需求追溯检查表。未满足的 Must-have 项 → 🔴 BLOCKER。
+5. **测试质量审查（NEW）**：检查测试文件是否存在、是否覆盖四个维度（正常/边界/错误/空值）、测试用例是否与验收条件一一对应。
+6. **健壮性审查（NEW）**：检查空状态处理、错误状态展示、重试逻辑、降级策略是否完备。
+7. 审查边界情况：错误处理、空状态、加载状态、极端输入。
+8. 问题分类记录，每个问题附带精确文件和行号。
 
 **REVIEW.md 格式：**
 
@@ -441,6 +569,12 @@ Stage 5: Integrator       ──→  集成验证（含简化 Review）
 
 ### 🟢 INFO（可选优化）
 1. `文件路径:行号` — 建议描述
+
+## 需求追溯检查（NEW）
+| PRD用户故事 | 实现状态 | 测试文件 | 测试覆盖 | 审查结论 |
+|------------|---------|---------|---------|---------|
+| US1: <标题> | ✅ /⚠️/ ❌ | `xxx.test.ts` | 4/4 | ✅ |
+| US2: <标题> | ✅ | `yyy.test.ts` | 3/4 | ⚠️ |
 
 ## 循环记录
 - 当前循环：N/3
@@ -547,15 +681,34 @@ while cycle < 3:
 
 1. 确认所有 BLOCKER 已修复（从 REVIEW APPROVED 进入时）。
 2. 全量构建验证：运行项目完整的 build 命令。
-3. 全量测试：运行项目测试套件（如存在）。
-4. 最终检查：确认 WORKFLOW_STATUS.md 记录完整（所有 Task 状态 + Issues 处理情况）。
-5. 清理工作流文件：询问用户是否保留 PLAN.md / DESIGN.md / REVIEW.md / WORKFLOW_STATUS.md。
+3. **全量回归测试（NEW）**：运行项目全量测试套件，验证已有测试全部通过，无回归。
+4. **覆盖率检查（NEW）**：运行覆盖率分析工具，验证关键业务逻辑覆盖率 >= 80%。不达标 → 触发 coverage auto-loop（Developer 补测试，最多 2 次）。
+5. **边界测试抽查（NEW）**：随机抽查 3-5 个关键边界测试用例，确认断言合理性。
+6. 最终检查：确认 WORKFLOW_STATUS.md 记录完整（所有 Task 状态 + Issues 处理情况）。
+7. 清理工作流文件：询问用户是否保留 PLAN.md / DESIGN.md / REVIEW.md / WORKFLOW_STATUS.md。
 
-**失败处理（自动循环，同 Reviewer 机制）：**
+**失败处理（自动循环 — 含回滚保护）：**
 
 - 集成失败 → 编排者自动定位问题 → 修复（最小化变更范围）→ 重新运行集成检查
 - 循环直到 SUCCESS 或达到 3 次上限
 - 3 次后仍失败：暂停并报告详细错误，等待用户决策
+
+**失败回滚机制（NEW）：**
+
+当 Integrator 在自动修复循环中失败 ≥ 2 次时，编排者应在继续修复前执行回滚保护：
+1. **创建回滚点**：执行 `git stash` 保存当前未提交的改动
+2. **记录回滚信息**：将当前的 git commit hash 和 stash 信息记录到 WORKFLOW_STATUS.md：
+   ```
+   ## Rollback Points
+   | 时间 | 触发原因 | Git Commit / Stash | 备注 |
+   |------|---------|-------------------|------|
+   | 14:30 | Integrator cycle 2/3 failed | `stash@{0}` | 构建失败，已保存改动 |
+   ```
+3. **继续修复**：从干净状态开始有针对性的修复
+4. **最终失败**：3 次后仍失败 → 保留所有回滚点和 stash，向用户报告：
+   - 所有回滚点位置和对应的改动内容
+   - 恢复命令（如 `git stash pop stash@{0}`）
+   - 将决策权交给用户（选择保留哪个回滚点的改动或完全回退）
 
 **完成条件：** 集成验证通过，输出最终报告。
 
@@ -569,6 +722,15 @@ while cycle < 3:
 - **类型检查：** ✅ PASS / ❌ FAIL
 - **Lint：** ✅ PASS / ❌ FAIL
 - **测试：** ✅ PASS / ❌ FAIL / ⬜ 跳过（项目未配置）
+- **覆盖率：** ✅ PASS (XX%) / ⚠️ SKIPPED / ❌ FAIL (XX%, 不达标)
+
+## 测试覆盖摘要（NEW）
+- **行覆盖率：** XX%（关键业务逻辑）/ XX%（整体）
+- **新增测试文件：** N 个（列出路径）
+- **新增测试用例：** N 个
+- **覆盖场景统计：** 正常路径 N / 边界条件 N / 错误路径 N / 空值空列表 N
+- **回归测试：** ✅ 全部通过 / ❌ N 个失败
+- **边界测试抽查：** 抽查 N 个用例，✅ 全部合理 / ⚠️ N 个需关注
 
 ## 变更总结
 - **新增文件：** N 个
@@ -586,7 +748,7 @@ while cycle < 3:
 | Stage 0: Product Manager | ✅ |
 | Stage 1: Tech Lead | ✅ |
 | Stage 2: Senior Dev | ✅ |
-| Stage 3: Developer | ✅ |
+| Stage 3: Developer | ✅（生成 N 个测试文件） |
 | Stage 4: Reviewer | ✅（N 次循环） |
 | Stage 5: Integrator | ✅ |
 
@@ -611,12 +773,12 @@ while cycle < 3:
 5. **质量优先**：不跳过任何阶段。轻量模式 `[quick]` 和中等模式 `[medium]` 是例外。
 6. **问题上报**：任何阶段发现上游问题，可以指出，Senior Dev 可直接修订 PLAN.md，其他角色记录到 WORKFLOW_STATUS.md 不上游修改。
 7. **最小化变更**：只修改实现目标所需的文件，不做额外重构或优化。
-8. **自动循环**：Reviewer 发现 BLOCKER → 编排者自动触发 Developer 修复模式 → 重新 Review，同会话内自动完成无需用户干预，最多 3 次。Integrator 失败同理，自动修复后重试。
+8. **自动循环**：Reviewer 发现 BLOCKER → 编排者自动触发 Developer 修复模式 → 重新 Review，同会话内自动完成无需用户干预，最多 3 次。Integrator 失败同理，自动修复后重试。Integrator 覆盖率 < 80% → 自动触发 Developer 补测试（coverage auto-loop），最多 2 次。
 9. **代码库验证**：Stage 1 中涉及的文件路径必须通过 Glob/Grep 实际搜索验证，不得凭空猜测。
-10. **AskUserQuestion 关键决策点**：Stage 0（项目优先级+范围确认）、Stage 1（需求理解+技术权衡+可扩展性）、Stage 2（设计权衡，按需）、Stage 4 NEEDS_DISCUSSION（阻塞处理决策）必须使用 AskUserQuestion 工具进行结构化询问，不得使用纯文本"回复 Y"模式。
+10. **AskUserQuestion 关键决策点**：Stage 0（项目优先级/范围确认 + 产品方向确认）、Stage 1（需求理解+技术权衡+可扩展性）、Stage 2（设计权衡确认，按需，120 秒超时暂停）、Stage 3 Developer 需求冲突（冲突确认）、Stage 4 NEEDS_DISCUSSION（阻塞处理决策）必须使用 AskUserQuestion 工具进行结构化询问，不得使用纯文本"回复 Y"模式。不可跳过。
 11. **精确变更范围**：Reviewer 和 Integrator 必须用 `git diff` 确定变更范围。
 12. **Task 级别追踪**：WORKFLOW_STATUS.md 追踪到 Task 粒度，而非仅阶段粒度。
-13. **自动阶段转换**：Stage 0 完成后自动进入 Stage 1（产品方向到技术方案是连贯流程）。Stage 4 APPROVED 后自动进入 Stage 5。其余阶段转换由用户通过 /multi-agent-dev resume 手动触发。
+13. **自动阶段转换**：Stage 0 完成后需用户确认产品方向（AskUserQuestion），确认后进入 Stage 1。Stage 1→2 自动推进。Stage 2 完成后需用户确认设计（AskUserQuestion，120s 超时暂停），确认后进入 Stage 3。Stage 4 APPROVED 后自动进入 Stage 5。**只有 Stage 3→4 需要用户手动 resume**（开发完成后用户应有机会检查代码再触发 Review）。
 14. **项目优先**：项目 `multi-agent-flow.md` 的「项目覆盖」区优先于全局模式。当项目做法与继承的全局模式矛盾时，以项目覆盖版本为准，覆盖时注明原因。项目不能删除全局模式，只能覆盖。
 15. **经验蒸馏**：integrator 追加经验时先过质量门槛（可操作+可泛化+作用域判定）；同类≥3次提炼为模式；提炼后删除原始条目；模式表达上限时淘汰最久未触发的。
 16. **跨项目推广**：模式在本项目稳定触发≥5次且无障碍 → 评估推广到更高作用域。推广前必须读取 pattern-registry.md 做冲突检测；有冲突按「特殊化→保持项目级→上报用户」协议解决。
@@ -625,6 +787,9 @@ while cycle < 3:
 ---
 
 ## 工作流状态文件（WORKFLOW_STATUS.md）— 增强版
+
+> **详细模板：** `docs/workflow-status-template.md` 包含 Full/Medium/Quick 三种模式的 WORKFLOW_STATUS.md 完整模板。
+> 编排者初始化或更新 WORKFLOW_STATUS.md 时可读取该文件参考。
 
 ```
 # Workflow Status
@@ -646,15 +811,16 @@ while cycle < 3:
 - [ ] Stage 5: Integrator
 
 ## Task Progress（从 DESIGN.md 任务清单初始化）
-| Task | 文件 | 状态 | 验证结果 |
-|------|------|------|----------|
-| Task 1: <标题> | `<path>` | ✅ done | ✅ type-check + lint passed |
-| Task 2: <标题> | `<path>` | 🔄 in_progress | - |
-| Task 3: <标题> | `<path>` | ⬜ pending | - |
+| Task | 文件 | 风险等级 | 状态 | 验证结果 |
+|------|------|---------|------|----------|
+| Task 1: <标题> | `<path>` | Critical | ✅ done | ✅ type-check + lint passed |
+| Task 2: <标题> | `<path>` | High | 🔄 in_progress | - |
+| Task 3: <标题> | `<path>` | Low | ⬜ pending | - |
 
 ## Retry Counters
 - Reviewer cycle: 0/3
 - Integrator cycle: 0/3
+- Coverage cycle: 0/2
 
 ## Issues Log
 | Stage | Task | Issue | Status |
@@ -667,16 +833,18 @@ while cycle < 3:
 | - | - | - |
 
 ## Timing（NEW — 每个阶段完成时记录）
-| Stage | 耗时 |
-|-------|------|
-| Stage 0: 产品经理 | 3min |
-| Stage 1: 技术负责人 | 5min |
-| **总计** | **Xmin** |
+| Stage | 耗时 | Token 消耗（估算） | 重试次数 | 备注 |
+|-------|------|-------------------|---------|------|
+| Stage 0: 产品经理 | 3min | ~12K | 0 | |
+| Stage 1: 技术负责人 | 5min | ~25K | 0 | |
+| **总计** | **Xmin** | **~XK tokens** | **N** | |
 ```
 
 ---
 
 ## 恢复机制（/multi-agent-dev resume）— 增强版
+
+> **详细定义：** `docs/resume.md` 包含 Resume 机制的完整定义和恢复前检查流程。
 
 当用户调用 `/multi-agent-dev resume` 时：
 
@@ -689,6 +857,8 @@ while cycle < 3:
 ---
 
 ## 中等模式 `[medium]` 详细定义
+
+> **详细定义：** `docs/modes.md` 包含 Medium 和 Quick 模式的完整定义、Workflow Status 模板和注意事项。
 
 `[medium]` 模式适用于中等复杂度的功能开发。跳过 Senior Dev 详细设计阶段和独立 Review 阶段，但保留产品方向确认和技术方案设计。
 
@@ -710,9 +880,15 @@ while cycle < 3:
 ### [medium] Stage 5: Integrator
 
 - 运行全量构建 + 验证
+- **全量回归测试**：运行测试套件验证无回归
+- **覆盖率检查**：运行覆盖率分析，>= 80% 通过
 - **内嵌 Review**：检查 diff 中是否有明显问题（硬编码、未使用 import、类型错误、安全漏洞）
-- 输出简化最终报告（含阶段回顾）
+- 输出简化最终报告（含阶段回顾和测试覆盖摘要）
 - 内嵌 Review 发现严重问题时，可建议用户改用完整模式重做
+
+### [medium] 自动推进
+
+`[medium]` 模式所有阶段（Stage 0→1→3→5）全部自动推进，无人工断点。编排者在不等待用户输入的情况下连续调用各阶段 Agent。
 
 ### [medium] WORKFLOW_STATUS.md
 
@@ -729,6 +905,7 @@ while cycle < 3:
 
 ## Retry Counters
 - Integrator cycle: 0/3
+- Coverage cycle: 0/2
 
 ## Files Changed
 | File | Change Type |
@@ -754,31 +931,39 @@ Quick 模式 Developer 在写代码前必须先完成 mini-design，防止方向
 **步骤：**
 
 1. **Mini-Design（必须先做，3-5 行）**：
-   
+
    - 搜索确认要修改的文件（Glob/Grep 验证文件存在）
    - 输出 mini-design：改哪个文件、改什么、怎么验证
    - 将 mini-design 写入 WORKFLOW_STATUS.md 的 `## Quick Design` 段
-   
+
    **Mini-Design 模板：**
-   
+
    ```
    ## Quick Design
    - **文件：** `<文件路径>`（已通过搜索确认存在）
    - **改动：** <具体改什么，1-2 句话>
    - **验证：** <验证命令>
+   - **测试：** <是否需要补充测试，测试文件路径>
    ```
 
 2. **实现代码**：按 mini-design 执行改动
 
-3. **验证**：运行验证命令，通过后标记 Task 完成
+3. **生成测试（如适用）**：对涉及业务逻辑的改动，生成对应单元测试
 
-4. 更新 WORKFLOW_STATUS.md Task 进度
+4. **验证**：运行验证命令 + 测试，通过后标记 Task 完成
+
+5. 更新 WORKFLOW_STATUS.md Task 进度
 
 ### [quick] Stage 5: Integrator
 
 - 运行全量构建 + 验证
+- **全量回归测试**：运行测试套件验证无回归
 - **内嵌简化 Review**：检查 diff 中是否有明显问题（硬编码、未使用 import、类型错误）
-- 输出简化最终报告（跳过阶段回顾部分）
+- 输出简化最终报告（含测试覆盖摘要，跳过阶段回顾部分）
+
+### [quick] 自动推进
+
+`[quick]` 模式 Stage 3→5 自动推进，无人工断点。编排者在 Developer 完成后直接触发 Integrator，无需用户输入 `/multi-agent-dev resume`。
 
 ### [quick] WORKFLOW_STATUS.md
 
@@ -800,6 +985,7 @@ Quick 模式 Developer 在写代码前必须先完成 mini-design，防止方向
 
 ## Retry Counters
 - Integrator cycle: 0/3
+- Coverage cycle: 0/2
 
 ## Files Changed
 | File | Change Type |

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(git -C \"E:\\\\multti-agent-dev\" log --oneline -20)",
+      "Bash(git -C \"E:\\\\multti-agent-dev\" remote -v)",
+      "Bash(git -C \"E:\\\\multti-agent-dev\" -c protocol.file.allow=always -c safe.directory=* log --oneline -20)",
+      "Bash(git -C \"E:\\\\multti-agent-dev\" -c protocol.file.allow=always -c safe.directory=* remote -v)",
+      "Bash(git -C \"E:\\\\multti-agent-dev\" -c protocol.file.allow=always -c safe.directory=* branch -a)"
+    ]
+  }
+}
